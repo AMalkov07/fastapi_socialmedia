@@ -104,7 +104,7 @@ def delete_post(id: int, response: Response):
 
 @app.put("/posts/{id}")
 
-def update_post(id: int, post: Post):
+def update_post(id: int, post: Post, response: Response):
     index = find_index(id)
     if not index:
         response.status_code = 404
