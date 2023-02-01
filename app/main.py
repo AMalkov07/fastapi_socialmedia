@@ -17,7 +17,7 @@ class Post(BaseModel):
     content: str
     # published variable has a default value which means that the user will not be required to provide this value
     published: bool = True
-    # this is an alternate way to create an optoinal field which will default to null if the user oes not provide it
+    # this is an alternate way to create an optional field which will default to null if the user oes not provide it
     rating: Optional[int] = None
 
 myPosts = []
@@ -57,7 +57,7 @@ def get_posts():
 def get_post(id: int, response: Response):
     # find_post simply iterates over our myPosts list and returns the one w/ the correct id
     post = find_post(id)
-    # this code will be for 404 not found error (if a uesr tries to access an id that doesn't exist)
+    # this code will be for 404 not found error (if a user tries to access an id that doesn't exist)
     if not post:
         response.status_code = 404
         return {'message': f"the page you are looking for does not exist"}
@@ -84,7 +84,6 @@ def posts_any(payload: dict = Body(...)):
 # assigned to the new_post variable (this variable will have the pydantic model type since post has this type), 
 # if the data does not match then it will create a "type": "value_error" pydantic model type w/ more info
 def posts_controlled(new_post: Post):
-    print(new_post.published)
     # pydantic model types can be converted to dicitonaries with the .dict() function
     post_dict = new_post.dict()
     #new_post["message"] = "successfully created posts"
