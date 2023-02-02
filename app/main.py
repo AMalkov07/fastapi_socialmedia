@@ -108,7 +108,7 @@ def delete_post(id: int, response: Response):
 
 @app.put("/posts/{id}", response_model=schemas.Post)
 
-def update_post(id: int, post: schemas.PostCreate):
+def update_post(id: int, post: schemas.PostCreate, response: Response):
     cursor.execute("""UPDATE posts SET title = %s, content = %s, published = %s WHERE id = %s RETURNING * """, (post.title, post.content, post.published, str(id)))
     changed_post = cursor.fetchone()
     conn.commit()
