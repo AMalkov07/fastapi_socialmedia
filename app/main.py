@@ -51,7 +51,7 @@ def get_posts():
     posts = cursor.fetchall()
     return posts
 
-@app.get("/posts/{id}", response_model = schemas.Post)
+@app.get("/posts/{id}", response_model=schemas.Post)
 # this function will get a specific post by id
 # the id will be provided by the user by them accessing the url of the correct id
 # ex. if user wants post with id 2 then they should go to http://127.0.0.1:8000/posts/2
