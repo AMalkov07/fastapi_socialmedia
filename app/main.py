@@ -39,17 +39,6 @@ class Post(BaseModel):
     # this is an alternate way to create an optional field which will default to null if the user oes not provide it
     rating: Optional[int] = None
 
-myPosts = []
-
-def find_post(id):
-    for p in myPosts:
-        if p["id"] == id:
-            return p
-
-def find_index(id):
-    for i, p in enumerate(myPosts):
-        if p["id"] == id:
-            return i
 
 # this is a decorator. The decorator will be applied to the function thats directly following it
 # The .get refers to the http GET request 
