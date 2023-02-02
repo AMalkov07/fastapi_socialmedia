@@ -5,8 +5,27 @@ from fastapi.params import Body
 from pydantic import BaseModel
 from typing import Optional
 from random import randrange
+import psycopg2
+from psycopg2.extras import RealDictCursor
+import time
 
 app = FastAPI()
+
+while True:
+    try:
+        # next line creates a connection to a database server
+        # database, user, and password are all from postgressql setup
+        # cursor_factory field changes some format stuff, in this case, it makes is so that queries include the
+        # column names in adition to the column values, basically making it a nice python dictionary
+        conn = psycopg2.connect(host='localhost', database='fastapi', user='postgres', password='lkjhgfdsa101', cursor_factory=RealDictCursor)
+        # cursor will be the variable that we access in order to use sql queries from out database
+        cursor = conn.cursor()
+        print("Database connection was successfull!")
+        break
+    except Exception as error:
+        print("connecting to database failed")
+        print(f'error: {error}')
+        time.sleep(2)
 
 
 # we use the pydantic BaseModel function to define the type of request that we want users to send in Post requests
@@ -46,7 +65,12 @@ def root():
 @app.get("/posts")
 # this function will return all of the posts my returning our myPosts list
 def get_posts():
-    return myPosts
+    # this line simply saves a query, it doesn't actually execute it (despite the name)
+    cursor.execute("""SELECT * FROM posts""")
+    # this line actually executes the queyr on our database
+    # we should use fetchall when we are expecting multiple post, and fetchone if we are expecting only 1 post
+    posts = cursor.fetchall()
+    return posts
 
 @app.get("/posts/{id}")
 # this function will get a specific post by id
@@ -55,8 +79,8 @@ def get_posts():
 # the stuff in the parenthesis insures that the id variable the the user is supposed to go to is an int 
 # the response variable is for manipulating things about the response such as the error code
 def get_post(id: int, response: Response):
-    # find_post simply iterates over our myPosts list and returns the one w/ the correct id
-    post = find_post(id)
+    cursor.execute("""SELECT * FROM posts WHERE id = %s """, (str(id)))
+    post = cursor.fetchone()
     # this code will be for 404 not found error (if a user tries to access an id that doesn't exist)
     if not post:
         response.status_code = 404
@@ -67,6 +91,7 @@ def get_post(id: int, response: Response):
 # the POST request means that the user will send some data to the server and we can do whatever we want w/ it
 @app.post("/posts/any")
 
+# this is an example of a manual way to extract info from a post request into a dictionary
 # the stuff in the parenthesis means that we want to extrac the data from the body of the http request
 # that was sent by the client, then we want to conver that data to a python dictionary, and then we want to
 # assign that dictonary to the variable "payload". We can then manipulate the "payload" variable in our function
@@ -81,34 +106,38 @@ def posts_any(payload: dict = Body(...)):
 
 # the stuff in parenthesis means that we automatically extract the data from our client post request and
 # validate it against the model that we defined in the post class, and if the data type matches then it is
-# assigned to the new_post variable (this variable will have the pydantic model type since post has this type), 
-# if the data does not match then it will create a "type": "value_error" pydantic model type w/ more info
-def posts_controlled(new_post: Post):
-    # pydantic model types can be converted to dicitonaries with the .dict() function
-    post_dict = new_post.dict()
-    #new_post["message"] = "successfully created posts"
-    post_dict["id"] = randrange(0, 10000000)
-    myPosts.append(post_dict)
-    return post_dict
+# assigned to the new_post variable (this variable will have the pydantic model type since post has this type) if the data does not match then it will create a "type": "value_error" pydantic model type w/ more info
+def posts_controlled(post: Post):
+    # we use this method (w/ the %s values) to create our sql command in order to avoid sql injections, this
+    # works by essentially having the execute method sanatise our inputs by making sure there not sql code
+    cursor.execute("""INSERT INTO posts (title, content, published) VALUES (%s, %s, %s) Returning * """, (post.title, post.content, post.published))
+    new_post = cursor.fetchone()
+    # this will commit the added post to the database server. Without this, the new post will exist on the current instance of the database that the fastapi server is currently using, but won't be saved on database server
+    conn.commit()
+    return {"data": new_post}
 
 @app.delete("/posts/{id}", status_code = 204)
 
 def delete_post(id: int, response: Response):
-    index = find_index(id)
-    if not index:
+    cursor.execute("""DELETE FROM posts WHERE id = %s returning *""", (str(id)))
+    deleted_post = cursor.fetchone()
+    conn.commit()
+
+    if not deleted_post:
         response.status_code = 404
         return {'message': f"the page you are looking for does not exist"}
-    myPosts.pop(index)
-    return {'message': "post was successfully deleted"}
+    # delete function generally isn't supposed to return anything when successfully ran
+    return
 
 @app.put("/posts/{id}")
 
 def update_post(id: int, post: Post, response: Response):
-    index = find_index(id)
-    if not index:
+    cursor.execute("""UPDATE posts SET title = %s, content = %s, published = %s WHERE id = %s RETURNING * """, (post.title, post.content, post.published, str(id)))
+    changed_post = cursor.fetchone()
+    conn.commit()
+
+    if not changed_post:
         response.status_code = 404
         return {'message': f"the page you are looking for does not exist"}
-    post_dict = post.dict()
-    post_dict['id'] = id
-    myPosts[index] = post_dict
-    return {'data': post_dict}
+
+    return {'data': changed_post}
