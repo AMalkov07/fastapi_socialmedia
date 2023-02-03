@@ -16,18 +16,12 @@ import models
 import database
 
 #models.Base.metadata.create_all(bind=database.engine)
+# I think this line essentially creates the connection to our database by using the engine variable defined in our database file
+# also, this line (i think) will check our database and seee if it has the tables that are defined in models file. If they are not there, then it will create them
+# Note: if a table exists then it won't be modified, meaning that if we change our model then we should delete any tables that had that were using the old model so that a new one can be created
 models.database.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI()
-
-# sqlAlchemy Dependency
-# this function essentially creates and close our connection to the database
-def get_db():
-    db = database.SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 # we don't want to have the api commands available if we are not connected to a database server so we put the connection command in a loop to ensure that that api server connects to the database
 while True:
@@ -45,32 +39,28 @@ while True:
         print(f'error: {error}')
         time.sleep(2)
 
-
-
-
 # this is a decorator. The decorator will be applied to the function thats directly following it
 # The .get refers to the http GET request 
 # the "/" refers to the path of the url that we want the return statement to be located at, in this case we just want the root path which in our case is http://127.0.0.1:8000
 @app.get("/")
-
 def root():
     #whatever is in passed into return will be returned back to the user/client
     #anything else in the function will also automatically run when the user/client accesses the function
     return "this is the root path of the posts application"
 
 @app.get("/sqlalchemy")
-def test_posts(db: Session = Depends(get_db)):
-    return {"status": "success"}
+def test_posts(db: Session = Depends(database.get_db)):
+
+    posts = db.query(models.Post).all()
+    return {"data": posts}
 
 
-@app.get("/posts", response_model=List[schemas.Post])
+#@app.get("/posts", response_model=List[schemas.Post])
+@app.get("/posts")
 # this function will return all posts
-def get_posts():
-    # this line simply saves a query, it doesn't actually execute it (despite the name)
-    cursor.execute("""SELECT * FROM posts""")
-    # this line actually executes the query on our database
-    # we should use fetchall when we are expecting multiple post, and fetchone if we are expecting only 1 post
-    posts = cursor.fetchall()
+def get_posts(db: Session = Depends(database.get_db)):
+    
+    posts = db.query(models.Post).all()
     return posts
 
 @app.get("/posts/{id}", response_model=schemas.Post)

@@ -14,3 +14,13 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # all models extend a base class that is defined here
 Base = declarative_base()
+
+# sqlAlchemy Dependency
+# this function essentially creates and close our connection to the database
+def get_db():
+    # this line creates a session and assigns it to db variable
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
