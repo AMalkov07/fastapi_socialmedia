@@ -1,6 +1,6 @@
 # to start the server we use the uvicorn main:app command. the "app" reffers to our FastAPI variable
 # running uvicorn main:app --reload will automatically restart the server anytime theres a change in the code
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Response, Depends
 from fastapi.params import Body
 from random import randrange
 import psycopg2
@@ -9,8 +9,25 @@ import time
 #from . import schemas
 import schemas
 from typing import List
+from sqlalchemy.orm import Session
+#from . import models
+import models
+#from .database import engine, SessionLocal
+import database
+
+#models.Base.metadata.create_all(bind=database.engine)
+models.database.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI()
+
+# sqlAlchemy Dependency
+# this function essentially creates and close our connection to the database
+def get_db():
+    db = database.SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 # we don't want to have the api commands available if we are not connected to a database server so we put the connection command in a loop to ensure that that api server connects to the database
 while True:
@@ -40,6 +57,11 @@ def root():
     #whatever is in passed into return will be returned back to the user/client
     #anything else in the function will also automatically run when the user/client accesses the function
     return "this is the root path of the posts application"
+
+@app.get("/sqlalchemy")
+def test_posts(db: Session = Depends(get_db)):
+    return {"status": "success"}
+
 
 @app.get("/posts", response_model=List[schemas.Post])
 # this function will return all posts

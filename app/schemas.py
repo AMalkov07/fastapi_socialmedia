@@ -15,7 +15,7 @@ class PostCreate(PostBase):
     pass
 
 # Note: we don't actually have to specify the title, content, and published fields because they are inherited from PostBase
-class Post(BaseModel):
+class Post(PostBase):
     title: str
     content: str
     published: bool
