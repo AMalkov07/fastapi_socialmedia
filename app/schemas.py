@@ -9,7 +9,7 @@ class PostBase(BaseModel):
     # published variable has a default value which means that the user will not be required to provide this value
     published: bool = True
     # this is an alternate way to create an optional field which will default to null if the user does not provide it
-    rating: Optional[int] = None
+    #rating: Optional[int] = None
 
 class PostCreate(PostBase):
     pass
@@ -18,4 +18,4 @@ class PostCreate(PostBase):
 class Post(PostBase):
     title: str
     content: str
-    published: bool
+    published: bool = True

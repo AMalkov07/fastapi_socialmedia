@@ -15,5 +15,5 @@ class Post(database.Base):
     title = Column(String, nullable=False)
     content = Column(String, nullable=False)
     # the server_default field value will appear in the Default field of the specified column
-    published = Column(Boolean, server_default='True', nullable=False)
+    published = Column(Boolean, nullable=False, server_default=text('True'))
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text('now()'))

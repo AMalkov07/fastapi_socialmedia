@@ -51,6 +51,7 @@ def root():
 @app.get("/sqlalchemy")
 def test_posts(db: Session = Depends(database.get_db)):
 
+    #.all means that we are searching for all the posts w/ the correct requirements
     posts = db.query(models.Post).all()
     return {"data": posts}
 
@@ -59,20 +60,15 @@ def test_posts(db: Session = Depends(database.get_db)):
 @app.get("/posts")
 # this function will return all posts
 def get_posts(db: Session = Depends(database.get_db)):
-    
     posts = db.query(models.Post).all()
     return posts
 
-@app.get("/posts/{id}", response_model=schemas.Post)
-# this function will get a specific post by id
-# the id will be provided by the user by them accessing the url of the correct id
-# ex. if user wants post with id 2 then they should go to http://127.0.0.1:8000/posts/2
-# the stuff in the parenthesis insures that the id variable the the user is supposed to go to is an int 
-# the response variable is for manipulating things about the response such as the error code
-def get_post(id: int, response: Response):
-    cursor.execute("""SELECT * FROM posts WHERE id = %s """, (str(id),))
-    post = cursor.fetchone()
+#@app.get("/posts/{id}", response_model=schemas.Post)
+@app.get("/posts/{id}")
+def get_post(id: int, response: Response, db: Session = Depends(database.get_db)):
     # this code will be for 404 not found error (if a user tries to access an id that doesn't exist)
+    # .first will just find hte first instance of the requirements being met in our database
+    post = db.query(models.Post).filter(models.Post.id == id).first()
     if not post:
         response.status_code = 404
         return {'message': f"the page you are looking for does not exist"}
@@ -80,53 +76,58 @@ def get_post(id: int, response: Response):
 
 # .post reffers to http POST request
 # the POST request means that the user will send some data to the server and we can do whatever we want w/ it
-@app.post("/posts/any")
-
-# this is an example of a manual way to extract info from a post request into a dictionary
-# the stuff in the parenthesis means that we want to extrac the data from the body of the http request
-# that was sent by the client, then we want to conver that data to a python dictionary, and then we want to
-# assign that dictonary to the variable "payload". We can then manipulate the "payload" variable in our function
-def posts_any(payload: dict = Body(...)):
-    payload["message"] = "successfully created posts"
-    return payload
-
-
-
 # the status_code parameter changes the default http code for this function
 # the response_model parameter defines exactly what can be returned to the user. In this case, we are passing the Schemas.Post class which inherits from the BaseModel class, which means we are required to send back a dictionary that contains all of the required fields that are defined in the schemas.Post class
-@app.post("/posts", status_code = 201, response_model = schemas.Post)
+@app.post("/posts", status_code = 201)
+#@app.post("/posts", status_code = 201, response_model = schemas.Post)
 
-# the stuff in parenthesis means that we automatically extract the data from our client post request and validate it against the model that we defined in the postCreate class, and if the data type matches then it is assigned to the post variable (this variable will have the pydantic model type) if the data does not match then it will create a "type": "value_error" pydantic model type w/ more info
-def create_post(post: schemas.PostCreate):
-    # we use this method (w/ the %s values) to create our sql command in order to avoid sql injections, this works by having the execute method sanatise our inputs by making sure there not sql code
-    cursor.execute("""INSERT INTO posts(title, content, published) VALUES(%s, %s, %s) Returning * """, (post.title, post.content, post.published))
-    new_post = cursor.fetchone()
-    # this will commit the added post to the database server. Without this, the new post will exist on the current instance of the database that the fastapi server is currently using, but won't be saved on database server
-    conn.commit()
+# the data the is being reseved is still being validated by the schemas.Post class
+def create_post(post: schemas.Post, db: Session = Depends(database.get_db)):
+    # the nex tline is a manual way to create the new+post variable
+    #new_post = models.Post(title=post.title, content=post.content, published=post.published)
+    # what we are doing in the next line is converting the post variable into a dictionary and then unpacking it w/ the ** (see above line to see manual way of whats going on)
+    new_post = models.Post(**post.dict())
+    # db.add adds the post to the database
+    db.add(new_post)
+    # db.commit commits the changes on our local dabase to the database esrver
+    db.commit()
+    # db.refresh is instead of the RETURN * at the end of our sql command, meaning that it essentially retrieves the post that we just commited to the database and stores it in the new_post variable
+    db.refresh(new_post)
     return new_post
 
 @app.delete("/posts/{id}", status_code = 204)
 
-def delete_post(id: int, response: Response):
-    cursor.execute("""DELETE FROM posts WHERE id = %s RETURNING * """, (str(id),))
-    deleted_post = cursor.fetchone()
-    conn.commit()
+def delete_post(id: int, response: Response, db: Session = Depends(database.get_db)):
 
-    if not deleted_post:
+    # remember that by default, this line just creates an sql command and saves it in the post variable
+    post = db.query(models.Post).filter(models.Post.id == id)
+
+    # the .first() method actually queries the database for the sql query that is saved in post variable
+    if not post.first():
         response.status_code = 404
         return {'message': "the page you are looking for does not exist"}
+
+    # the synchronized_session=False is the default config of the delete method and the delete method actually queries and deletes the correct post from the datbase
+    post.delete(synchronize_session=False)
+    db.commit()
     # delete function generally isn't supposed to return anything when successfully ran
     return
 
-@app.put("/posts/{id}", response_model=schemas.Post)
+#@app.put("/posts/{id}", response_model=schemas.Post)
+@app.put("/posts/{id}")
 
-def update_post(id: int, post: schemas.PostCreate, response: Response):
-    cursor.execute("""UPDATE posts SET title = %s, content = %s, published = %s WHERE id = %s RETURNING * """, (post.title, post.content, post.published, str(id)))
-    changed_post = cursor.fetchone()
-    conn.commit()
+def update_post(id: int, post: schemas.PostCreate, response: Response, db: Session = Depends(database.get_db)):
+    
+    post_query = db.query(models.Post).filter(models.Post.id == id)
+    changed_post = post_query.first()
 
     if not changed_post:
         response.status_code = 404
         return {'message': "the page you are looking for does not exist"}
 
-    return changed_post
+    # synchronize_sesion=False is the deafult config for updates
+    # we can just pass in a dict for the first argument, we don't have to unpack it
+    post_query.update(post.dict(), synchronize_session=False)
+    db.commit()
+
+    return post_query.first()
