@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
 
-# we use the pydantic BaseModel function to define the type of request that we want users to send in post/put requests
+# we use the pydantic BaseModel function to define the type of request that we want users to send in post/put requests, and we define what informatoin should be sent back to the user w/ get requests
 # all non-optional fields must be provided and they must be of the correct type, otherwise an error will be thrown
 class PostBase(BaseModel):
     title: str
@@ -28,9 +28,11 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
 
+# we never want to send the user back there password since they should always know it already (and its hashed anyway)
 class UserReturn(BaseModel):
     email: EmailStr
     id: int
+    created_at: datetime
 
     class Config:
         orm_mode = True
