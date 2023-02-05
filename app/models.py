@@ -7,6 +7,7 @@ from sqlalchemy.sql.sqltypes import TIMESTAMP
 import database
 
 # this is essentially how you create a table using sqlalchemy
+# Note: this code is mostly used to create a new table, if a table w/ the specified name doesn't already exist
 class Post(database.Base):
     __tablename__ = "posts"
 

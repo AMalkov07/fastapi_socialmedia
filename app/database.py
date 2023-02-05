@@ -17,6 +17,7 @@ Base = declarative_base()
 
 # sqlAlchemy Dependency
 # this function essentially creates and close our connection to the database
+# We will call this function every time a user accesses our API so we are essentially creating a new sessoin w/ our database w/ every API request, and then we are ending it (both the creation and closure of the session is handled by this function)
 def get_db():
     # this line creates a session and assigns it to db variable
     db = SessionLocal()

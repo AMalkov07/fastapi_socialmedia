@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from datetime import datetime
 
 # we use the pydantic BaseModel function to define the type of request that we want users to send in post/put requests
 # all non-optional fields must be provided and they must be of the correct type, otherwise an error will be thrown
@@ -14,8 +14,11 @@ class PostBase(BaseModel):
 class PostCreate(PostBase):
     pass
 
-# Note: we don't actually have to specify the title, content, and published fields because they are inherited from PostBase
-class Post(PostBase):
-    title: str
-    content: str
-    published: bool = True
+# Note: becaues this class inherites from postBase, title, content, and published will be included in addition to whatever fields we specify in this function
+class PostResponse(PostBase):
+    id: int
+    created_at: datetime
+
+    # these 2 lines are necessary when working w/ sqlalchemy. It essentially converts our sqlalchemy model responses to dicitonaries (this means that we can return sqlalchemy model variables)
+    class Config:
+        orm_mode = True

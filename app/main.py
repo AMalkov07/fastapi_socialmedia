@@ -1,6 +1,6 @@
 # to start the server we use the uvicorn main:app command. the "app" reffers to our FastAPI variable
 # running uvicorn main:app --reload will automatically restart the server anytime theres a change in the code
-from fastapi import FastAPI, Response, Depends
+from fastapi import FastAPI, Response, Depends, status, HTTPException
 from fastapi.params import Body
 from random import randrange
 import psycopg2
@@ -16,8 +16,8 @@ import models
 import database
 
 #models.Base.metadata.create_all(bind=database.engine)
-# I think this line essentially creates the connection to our database by using the engine variable defined in our database file
-# also, this line (i think) will check our database and seee if it has the tables that are defined in models file. If they are not there, then it will create them
+# Note: this line doesn't create a connection to the databaes (at least by itself), sqlalchemy is not able to create a direction connetion w/o some sort of driver doing it first such as our psycopg2 connection
+# also, this line (i think) will check our database and see if it has the tables that are defined in models file. If they are not there, then it will create them
 # Note: if a table exists then it won't be modified, meaning that if we change our model then we should delete any tables that had that were using the old model so that a new one can be created
 models.database.Base.metadata.create_all(bind=database.engine)
 
@@ -48,44 +48,40 @@ def root():
     #anything else in the function will also automatically run when the user/client accesses the function
     return "this is the root path of the posts application"
 
-@app.get("/sqlalchemy")
-def test_posts(db: Session = Depends(database.get_db)):
-
-    #.all means that we are searching for all the posts w/ the correct requirements
-    posts = db.query(models.Post).all()
-    return {"data": posts}
-
-
-#@app.get("/posts", response_model=List[schemas.Post])
-@app.get("/posts")
+@app.get("/posts", response_model=List[schemas.PostResponse])
 # this function will return all posts
+# the stuff if the parenthesese basically means that we are creating a new session by calling the get_db function in our database file and passing it to the Depends function from the fastapi library, and then we store this session in the variable called db
 def get_posts(db: Session = Depends(database.get_db)):
+    # we are creating a query the the post model, and the .all() means that we want all of the found data
+    # note that we are reffering to the table we want to query by using the class defined in models
     posts = db.query(models.Post).all()
     return posts
 
-#@app.get("/posts/{id}", response_model=schemas.Post)
-@app.get("/posts/{id}")
+@app.get("/posts/{id}", response_model=schemas.PostResponse)
 def get_post(id: int, response: Response, db: Session = Depends(database.get_db)):
-    # this code will be for 404 not found error (if a user tries to access an id that doesn't exist)
-    # .first will just find hte first instance of the requirements being met in our database
+    # .first() will just find hte first instance of the requirements being met in our database
     post = db.query(models.Post).filter(models.Post.id == id).first()
-    if not post:
+
+    # this code will be for 404 not found error (if a user tries to access an id that doesn't exist)
+    #if not post:
+    if post == None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"post with id: {id} was not found")
         response.status_code = 404
-        return {'message': f"the page you are looking for does not exist"}
+        return {'message': "the page you are looking for does not exist"}
     return post
 
-# .post reffers to http POST request
+# .post refers to http POST request
 # the POST request means that the user will send some data to the server and we can do whatever we want w/ it
 # the status_code parameter changes the default http code for this function
 # the response_model parameter defines exactly what can be returned to the user. In this case, we are passing the Schemas.Post class which inherits from the BaseModel class, which means we are required to send back a dictionary that contains all of the required fields that are defined in the schemas.Post class
-@app.post("/posts", status_code = 201)
-#@app.post("/posts", status_code = 201, response_model = schemas.Post)
+@app.post("/posts", status_code = 201, response_model = schemas.PostResponse)
 
 # the data the is being reseved is still being validated by the schemas.Post class
-def create_post(post: schemas.Post, db: Session = Depends(database.get_db)):
-    # the nex tline is a manual way to create the new+post variable
+def create_post(post: schemas.PostCreate, db: Session = Depends(database.get_db)):
+    # the next line is a manual way to create the new+post variable
     #new_post = models.Post(title=post.title, content=post.content, published=post.published)
     # what we are doing in the next line is converting the post variable into a dictionary and then unpacking it w/ the ** (see above line to see manual way of whats going on)
+    # the overall effect of the next line is to basically just create an object of type Post w/ all the info that was provided in the post variable, and we store all this info in the new_post variable
     new_post = models.Post(**post.dict())
     # db.add adds the post to the database
     db.add(new_post)
@@ -99,11 +95,12 @@ def create_post(post: schemas.Post, db: Session = Depends(database.get_db)):
 
 def delete_post(id: int, response: Response, db: Session = Depends(database.get_db)):
 
-    # remember that by default, this line just creates an sql command and saves it in the post variable
+    # remember that by default, this line just creates new SQL code, but does not actually query the database
     post = db.query(models.Post).filter(models.Post.id == id)
 
     # the .first() method actually queries the database for the sql query that is saved in post variable
     if not post.first():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"post with id: {id} was not found")
         response.status_code = 404
         return {'message': "the page you are looking for does not exist"}
 
@@ -113,15 +110,14 @@ def delete_post(id: int, response: Response, db: Session = Depends(database.get_
     # delete function generally isn't supposed to return anything when successfully ran
     return
 
-#@app.put("/posts/{id}", response_model=schemas.Post)
-@app.put("/posts/{id}")
+@app.put("/posts/{id}", response_model=schemas.PostResponse)
 
 def update_post(id: int, post: schemas.PostCreate, response: Response, db: Session = Depends(database.get_db)):
-    
     post_query = db.query(models.Post).filter(models.Post.id == id)
     changed_post = post_query.first()
 
     if not changed_post:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"post with id: {id} was not found")
         response.status_code = 404
         return {'message': "the page you are looking for does not exist"}
 
