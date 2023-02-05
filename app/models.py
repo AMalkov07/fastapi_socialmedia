@@ -8,6 +8,7 @@ import database
 
 # this is essentially how you create a table using sqlalchemy
 # Note: this code is mostly used to create a new table, if a table w/ the specified name doesn't already exist
+# the database.Base extension is necessary for any sqlalchemy table creation classes
 class Post(database.Base):
     __tablename__ = "posts"
 
@@ -17,4 +18,12 @@ class Post(database.Base):
     content = Column(String, nullable=False)
     # the server_default field value will appear in the Default field of the specified column
     published = Column(Boolean, nullable=False, server_default=text('True'))
+    created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text('now()'))
+
+class User(database.Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, nullable=False)
+    email = Column(String, nullable=False, unique=True)
+    password = Column(String, nullable=False)
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text('now()'))

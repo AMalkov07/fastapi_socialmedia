@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from datetime import datetime
 
 # we use the pydantic BaseModel function to define the type of request that we want users to send in post/put requests
@@ -20,5 +20,17 @@ class PostResponse(PostBase):
     created_at: datetime
 
     # these 2 lines are necessary when working w/ sqlalchemy. It essentially converts our sqlalchemy model responses to dicitonaries (this means that we can return sqlalchemy model variables)
+    class Config:
+        orm_mode = True
+
+class UserCreate(BaseModel):
+    # EmailStr is a type that validates that the nput was a valid email address
+    email: EmailStr
+    password: str
+
+class UserReturn(BaseModel):
+    email: EmailStr
+    id: int
+
     class Config:
         orm_mode = True

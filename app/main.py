@@ -5,6 +5,7 @@ from fastapi.params import Body
 from random import randrange
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from passlib.context import CryptContext
 import time
 #from . import schemas
 import schemas
@@ -14,6 +15,9 @@ from sqlalchemy.orm import Session
 import models
 #from .database import engine, SessionLocal
 import database
+
+# this is setting up our hashing algorithm. Essentially we are telling passlib what default hashing algorithm we want to use (in this case we are using bcrypt)
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 #models.Base.metadata.create_all(bind=database.engine)
 # Note: this line doesn't create a connection to the databaes (at least by itself), sqlalchemy is not able to create a direction connetion w/o some sort of driver doing it first such as our psycopg2 connection
@@ -127,3 +131,18 @@ def update_post(id: int, post: schemas.PostCreate, response: Response, db: Sessi
     db.commit()
 
     return post_query.first()
+
+
+@app.post("/users", status_code = 201, response_model=schemas.UserReturn)
+def Create_user(user: schemas.UserCreate, db: Session = Depends(database.get_db)):
+
+    # we use the pwd_context variable created at the top of this file to hash the users password
+    hashed_password=pwd_context.hash(user.password)
+    user.password=hashed_password
+
+    new_user = models.User(**user.dict())
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return new_user
