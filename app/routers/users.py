@@ -7,7 +7,11 @@ from sqlalchemy.orm import Session
 from typing import List
 import database
 
-router = APIRouter()
+router = APIRouter(
+    # Note: it makes sense to uncomment the next line and to use that prefix, but i'm not doing it for the sake of notes
+    #prefix="/user"
+    tags=["user"]
+)
 
 @router.post("/users", status_code = 201, response_model=schemas.UserReturn)
 def Create_user(user: schemas.UserCreate, db: Session = Depends(database.get_db)):

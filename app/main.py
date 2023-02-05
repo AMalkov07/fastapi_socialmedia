@@ -15,9 +15,7 @@ import models
 #from .database import engine, SessionLocal
 import database
 import utils
-from routers import posts, users
-#import routers.post
-#import routers.users
+from routers import posts, users, auth
 
 
 #models.Base.metadata.create_all(bind=database.engine)
@@ -44,8 +42,10 @@ while True:
         print(f'error: {error}')
         time.sleep(2)
 
+# to make our router objects work in the other files, we must esentially extend the functionality of the app object by using hte .include_router function
 app.include_router(posts.router)
 app.include_router(users.router)
+app.include_router(auth.router)
 
 
 # this is a decorator. The decorator will be applied to the function thats directly following it

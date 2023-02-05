@@ -6,9 +6,15 @@ from sqlalchemy.orm import Session
 from typing import List
 import database
 
-router = APIRouter()
+# instead of creating our decorators w/ the FASTAPI function stored in variable app, we instead use the APIROUTER function stored in variable router, we then use the functionality of our app variable to essentially duplicate the app variable functionality in the router function
+router = APIRouter(
+    # adding the prefix variable allows us to no longer have to fully specify the path in our decorators, everythin inside of the prefix will automatically be added and we just have to add the path after the prefix (if nothing comes after prefix then we just put a /)
+    prefix="/posts",
+    #tags are only used for the automatic documentation available at: http://localhost:8000/docs
+    tags=['Posts']
+)
 
-@router.get("/posts", response_model=List[schemas.PostResponse])
+@router.get("/", response_model=List[schemas.PostResponse])
 # this function will return all posts
 # the stuff if the parenthesese basically means that we are creating a new session by calling the get_db function in our database file and passing it to the Depends function from the fastapi library, and then we store this session in the variable called db
 def get_posts(db: Session = Depends(database.get_db)):
@@ -17,7 +23,7 @@ def get_posts(db: Session = Depends(database.get_db)):
     posts = db.query(models.Post).all()
     return posts
 
-@router.get("/posts/{id}", response_model=schemas.PostResponse)
+@router.get("/{id}", response_model=schemas.PostResponse)
 def get_post(id: int, response: Response, db: Session = Depends(database.get_db)):
     # .first() will just find hte first instance of the requirements being met in our database
     post = db.query(models.Post).filter(models.Post.id == id).first()
@@ -34,7 +40,7 @@ def get_post(id: int, response: Response, db: Session = Depends(database.get_db)
 # the POST request means that the user will send some data to the server and we can do whatever we want w/ it
 # the status_code parameter changes the default http code for this function
 # the response_model parameter defines exactly what can be returned to the user. In this case, we are passing the Schemas.Post class which inherits from the BaseModel class, which means we are required to send back a dictionary that contains all of the required fields that are defined in the schemas.Post class
-@router.post("/posts", status_code = 201, response_model = schemas.PostResponse)
+@router.post("/", status_code = 201, response_model = schemas.PostResponse)
 
 # the data the is being reseved is still being validated by the schemas.Post class
 def create_post(post: schemas.PostCreate, db: Session = Depends(database.get_db)):
@@ -51,7 +57,7 @@ def create_post(post: schemas.PostCreate, db: Session = Depends(database.get_db)
     db.refresh(new_post)
     return new_post
 
-@router.delete("/posts/{id}", status_code = 204)
+@router.delete("/{id}", status_code = 204)
 
 def delete_post(id: int, response: Response, db: Session = Depends(database.get_db)):
 
@@ -70,7 +76,7 @@ def delete_post(id: int, response: Response, db: Session = Depends(database.get_
     # delete function generally isn't supposed to return anything when successfully ran
     return
 
-@router.put("/posts/{id}", response_model=schemas.PostResponse)
+@router.put("/{id}", response_model=schemas.PostResponse)
 
 def update_post(id: int, post: schemas.PostCreate, response: Response, db: Session = Depends(database.get_db)):
     post_query = db.query(models.Post).filter(models.Post.id == id)
