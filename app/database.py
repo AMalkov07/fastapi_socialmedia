@@ -4,10 +4,12 @@ from sqlalchemy.orm import sessionmaker
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import time
+from config import settings
 
 #url format: 'postgresql://<username>:<password>@<ip-address>/hostname>/<database_name>'
 # hard coding stuff like your password database is obviously bad and shouldn't be done in real applications
-SQLALCHEM_DATABASES_URL = 'postgresql://postgres:lkjhgfdsa101@localhost/fastapi'
+#SQLALCHEM_DATABASES_URL = 'postgresql://postgres:lkjhgfdsa101@localhost/fastapi'
+SQLALCHEM_DATABASES_URL = f'postgresql://{settings.database_username}:{settings.database_password}@{settings.database_hostname}:{settings.database_port}/{settings.database_name}'
 
 # engine establishes a connection w/ the database
 engine = create_engine(SQLALCHEM_DATABASES_URL)
