@@ -1,6 +1,9 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+import psycopg2
+from psycopg2.extras import RealDictCursor
+import time
 
 #url format: 'postgresql://<username>:<password>@<ip-address>/hostname>/<database_name>'
 # hard coding stuff like your password database is obviously bad and shouldn't be done in real applications
@@ -25,3 +28,21 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+# we arent actually using the following code in this sqlalchemy model
+# we don't want to have the api commands available if we are not connected to a database server so we put the connection command in a loop to ensure that that api server connects to the database
+while True:
+    try:
+        # next line creates a connection to a database server and allows us to acces this connection through the conn variable
+        # database, user, and password are all from postgressql setup
+        # cursor_factory field changes some format stuff, in this case, it makes is so that queries include the column names in adition to the column values, basically making it a nice python dictionary
+        conn = psycopg2.connect(host='localhost', database='fastapi', user='postgres', password='lkjhgfdsa101', cursor_factory=RealDictCursor)
+        # cursor will be the variable that we access in order to use sql queries on our database
+        cursor = conn.cursor()
+        print("Database connection was successfull!")
+        break
+    except Exception as error:
+        print("connecting to database failed")
+        print(f'error: {error}')
+        time.sleep(2)

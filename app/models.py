@@ -1,6 +1,7 @@
 # w/ sqlalchemy, we create models using python code and each model represents a table in our databae
 
-from sqlalchemy import Column, Integer, String, Boolean
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql.expression import text
 from sqlalchemy.sql.sqltypes import TIMESTAMP 
 #from .database import Base
@@ -19,6 +20,11 @@ class Post(database.Base):
     # the server_default field value will appear in the Default field of the specified column
     published = Column(Boolean, nullable=False, server_default=text('True'))
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text('now()'))
+    # for the ForeignKey constraint, the first field is required is should first reference the __tablename__ value and then the field that you want the foreign key to reference
+    owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+
+    # this line leverages our foreignkey constraint to esentially do a JOIN between the Post and Users table
+    owner = relationship("User")
 
 class User(database.Base):
     __tablename__ = "users"

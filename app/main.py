@@ -1,22 +1,10 @@
 # to start the server we use the uvicorn main:app command. the "app" reffers to our FastAPI variable
 # running uvicorn main:app --reload will automatically restart the server anytime theres a change in the code
-from fastapi import FastAPI, Response, Depends, status, HTTPException
-from fastapi.params import Body
-from random import randrange
-import psycopg2
-from psycopg2.extras import RealDictCursor
-import time
-#from . import schemas
-import schemas
-from typing import List
-from sqlalchemy.orm import Session
-#from . import models
+from fastapi import FastAPI
 import models
-#from .database import engine, SessionLocal
 import database
-import utils
 from routers import posts, users, auth
-
+from config import settings
 
 #models.Base.metadata.create_all(bind=database.engine)
 # Note: this line doesn't create a connection to the databaes (at least by itself), sqlalchemy is not able to create a direction connetion w/o some sort of driver doing it first such as our psycopg2 connection
@@ -25,22 +13,6 @@ from routers import posts, users, auth
 models.database.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI()
-
-# we don't want to have the api commands available if we are not connected to a database server so we put the connection command in a loop to ensure that that api server connects to the database
-while True:
-    try:
-        # next line creates a connection to a database server and allows us to acces this connection through the conn variable
-        # database, user, and password are all from postgressql setup
-        # cursor_factory field changes some format stuff, in this case, it makes is so that queries include the column names in adition to the column values, basically making it a nice python dictionary
-        conn = psycopg2.connect(host='localhost', database='fastapi', user='postgres', password='lkjhgfdsa101', cursor_factory=RealDictCursor)
-        # cursor will be the variable that we access in order to use sql queries on our database
-        cursor = conn.cursor()
-        print("Database connection was successfull!")
-        break
-    except Exception as error:
-        print("connecting to database failed")
-        print(f'error: {error}')
-        time.sleep(2)
 
 # to make our router objects work in the other files, we must esentially extend the functionality of the app object by using hte .include_router function
 app.include_router(posts.router)
@@ -55,5 +27,5 @@ app.include_router(auth.router)
 def root():
     #whatever is in passed into return will be returned back to the user/client
     #anything else in the function will also automatically run when the user/client accesses the function
-    return "this is the root path of the posts application"
+    return {"message": "this is the root path of the application"}
 
