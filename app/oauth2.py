@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 import database
 import models
 import schemas
+from config import settings
 
 # the tokenUrl will be the url location in which we created the token, in ourcase we validate the uesr and create the token at the /login url
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='login')
@@ -15,13 +16,13 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl='login')
 
 # SECRET_KEY can be any string (prefferably long and randomely generated)
 # Note: we should never actually store the key in our code, this is for simplicity sake
-SECRET_KEY = "supersecretkey"
+SECRET_KEY = settings.secret_key
 
 # the algorithm will be used to create our signature by hashing the header, payload, and secret key
-ALGORITHM = "HS256"
+ALGORITHM = settings.algorithm
 
 # we need to privde an expiration time for the token so that users have to sometimes relog in
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.access_token_expire_minutes
 
 # the data variable will contain the payload that we want the token to carry (in a dictionary format)
 def create_access_token(data: dict):
@@ -69,4 +70,5 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
     user = db.query(models.User).filter(models.User.id == token.id).first()
 
+    # this returns the entire row of the users table associated w/ the user id imbedded in the token
     return user

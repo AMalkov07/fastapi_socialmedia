@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 import models
 import database
-from routers import posts, users, auth
+from routers import posts, users, auth, vote
 from config import settings
 
 #models.Base.metadata.create_all(bind=database.engine)
@@ -18,6 +18,7 @@ app = FastAPI()
 app.include_router(posts.router)
 app.include_router(users.router)
 app.include_router(auth.router)
+app.include_router(vote.router)
 
 
 # this is a decorator. The decorator will be applied to the function thats directly following it

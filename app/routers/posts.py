@@ -3,6 +3,7 @@ import models
 import schemas
 from fastapi import FastAPI, Response, Depends, status, HTTPException, APIRouter
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List, Optional
 import database
 import oauth2
@@ -15,7 +16,7 @@ router = APIRouter(
     tags=['Posts']
 )
 
-@router.get("/", response_model=List[schemas.PostResponse])
+@router.get("/", response_model=List[schemas.PostOut])
 # this function will return all posts
 # the stuff if the parenthesese basically means that we are creating a new session by calling the get_db function in our database file and passing it to the Depends function from the fastapi library, and then we store this session in the variable called db
 # the Limit & skip & search variables can be automatically set by our user by adding: ?Limit=<val> or ?Limit=<val>&Skip=<val> or ?Search=<val> (we do NOT need to put quotes around the value for the Search parameter)
@@ -23,13 +24,19 @@ def get_posts(db: Session = Depends(database.get_db), current_user: dict = Depen
     # we are creating a query the the post model, and the .all() means that we want all of the found data
     # note that we are reffering to the table we want to query by using the class defined in models
     # the .filter function will essentially make is so that we only return rows in which the title column contains the Search string in some way, the .limit function limits the maximum amount of rows that will be returned by our query and offset will skip a certain number of rows from the top before starting to return values
-    posts = db.query(models.Post).filter(models.Post.title.contains(Search)).limit(Limit).offset(Skip).all()
+    #posts = db.query(models.Post).filter(models.Post.title.contains(Search)).limit(Limit).offset(Skip).all()
+
+    # we want to create a query that will return all of our posts, in addition to the number of times each post has been liked, the SQL code for this is:
+    # SELECT posts.*, COUNT(votes.post_id) AS likes FROM posts JOIN votes ON posts.id = votes.post_id GROUP BY posts.id;
+    posts = db.query(models.Post, func.count(models.Vote.post_id).label("likes")).join(models.Vote, models.Post.id == models.Vote.post_id, isouter=True).group_by(models.Post.id).filter(models.Post.title.contains(Search)).limit(Limit).offset(Skip).all()
     return posts
 
-@router.get("/{id}", response_model=schemas.PostResponse)
+@router.get("/{id}", response_model=schemas.PostOut)
 def get_post(id: int, response: Response, db: Session = Depends(database.get_db), current_user: dict = Depends(oauth2.get_current_user)):
     # .first() will just find hte first instance of the requirements being met in our database
-    post = db.query(models.Post).filter(models.Post.id == id).first()
+    #post = db.query(models.Post).filter(models.Post.id == id).first()
+
+    post = db.query(models.Post, func.count(models.Vote.post_id).label("likes")).join(models.Vote, models.Post.id == models.Vote.post_id, isouter=True).group_by(models.Post.id).filter(models.Post.id == id).first()
 
     # this code will be for 404 not found error (if a user tries to access an id that doesn't exist)
     #if not post:

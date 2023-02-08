@@ -36,6 +36,14 @@ class PostResponse(PostBase):
     class Config:
         orm_mode = True
 
+# we will use this schemas to print out a post response w/ the number of likes attached
+class PostOut(BaseModel):
+    Post: PostResponse
+    likes: int
+
+    class Config:
+        orm_mode = True
+
 class UserCredentials(BaseModel):
     # EmailStr is a type that validates that the nput was a valid email address
     email: EmailStr
@@ -50,3 +58,9 @@ class Token(BaseModel):
 # we use this to define what goes inside of our token payload
 class TokenData(BaseModel):
     id: Optional[str]
+
+# class for liking/unliking posts
+# dir will be used to determine weather the post should be be a like or unlike
+class Vote(BaseModel):
+    post_id: int
+    dir: int
