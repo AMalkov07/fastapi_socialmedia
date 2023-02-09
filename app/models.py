@@ -5,26 +5,20 @@ from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql.expression import text
 from sqlalchemy.sql.sqltypes import TIMESTAMP 
-#from .database import Base
 import database
 
-# this is essentially how you create a table using sqlalchemy
-# Note: this code is mostly used to create a new table, if a table w/ the specified name doesn't already exist
-# the database.Base extension is necessary for any sqlalchemy table creation classes
+#Note: if a table with the correct name but with different columns already exists in our database then it will NOT be updated when we start the server
 class Post(database.Base):
     __tablename__ = "posts"
 
-    # nullable controlls weather or not a field can be left empty (false means it cannot be left empty)
     id = Column(Integer, primary_key=True, nullable=False)
     title = Column(String, nullable=False)
     content = Column(String, nullable=False)
-    # the server_default field value will appear in the Default field of the specified column
     published = Column(Boolean, nullable=False, server_default=text('True'))
     created_at = Column(TIMESTAMP(timezone=True), nullable=False, server_default=text('now()'))
-    # for the ForeignKey constraint, the first field is required is should first reference the __tablename__ value and then the field that you want the foreign key to reference
     owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
-    # this line leverages our foreignkey constraint to esentially do a JOIN between the Post and Users table
+    # this line leverages our foreignkey constraint to allow us to use the "User" class information inside of this class
     owner = relationship("User")
 
 class User(database.Base):

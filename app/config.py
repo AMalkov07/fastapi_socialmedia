@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int
 
     class Config:
-        #env_file = "C:\Users\Andrey\python\fastapi_socialmedia\.env"
+        # env_file should contain the path to the file that contains the information for your environment variables
         env_file = "../.env"
 
 settings = Settings()

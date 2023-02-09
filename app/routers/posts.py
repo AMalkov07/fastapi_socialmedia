@@ -1,113 +1,79 @@
-#from .. import models, schemas, utils
-import models
-import schemas
-from fastapi import FastAPI, Response, Depends, status, HTTPException, APIRouter
+from fastapi import Response, Depends, status, HTTPException, APIRouter
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List, Optional
-import database
-import oauth2
+import database, oauth2, models, schemas
 
-# instead of creating our decorators w/ the FASTAPI function stored in variable app, we instead use the APIROUTER function stored in variable router, we then use the functionality of our app variable to essentially duplicate the app variable functionality in the router function
+# we use router instead of app variable to connect to specific urls
 router = APIRouter(
-    # adding the prefix variable allows us to no longer have to fully specify the path in our decorators, everythin inside of the prefix will automatically be added and we just have to add the path after the prefix (if nothing comes after prefix then we just put a /)
     prefix="/posts",
     #tags are only used for the automatic documentation available at: http://localhost:8000/docs
     tags=['Posts']
 )
 
+# this function will return a specified number of the most recent posts based on a search parameter
 @router.get("/", response_model=List[schemas.PostOut])
-# this function will return all posts
-# the stuff if the parenthesese basically means that we are creating a new session by calling the get_db function in our database file and passing it to the Depends function from the fastapi library, and then we store this session in the variable called db
-# the Limit & skip & search variables can be automatically set by our user by adding: ?Limit=<val> or ?Limit=<val>&Skip=<val> or ?Search=<val> (we do NOT need to put quotes around the value for the Search parameter)
-def get_posts(db: Session = Depends(database.get_db), current_user: dict = Depends(oauth2.get_current_user), Limit: int = 10, Skip: int = 0, Search: Optional[str] = ""):
-    # we are creating a query the the post model, and the .all() means that we want all of the found data
-    # note that we are reffering to the table we want to query by using the class defined in models
-    # the .filter function will essentially make is so that we only return rows in which the title column contains the Search string in some way, the .limit function limits the maximum amount of rows that will be returned by our query and offset will skip a certain number of rows from the top before starting to return values
-    #posts = db.query(models.Post).filter(models.Post.title.contains(Search)).limit(Limit).offset(Skip).all()
+def get_posts(db: Session = Depends(database.get_db), current_user: dict = Depends(oauth2.get_current_user), limit: int = 10, skip: int = 0, search: Optional[str] = ""):
+    # we return all the post information allong with the number of likes that the post currently has
+    # limit, skip, and search variables are matched by URL query parameters
+    # corresponding SQL command: SELECT posts.*, COUNT(votes.post_id) AS likes FROM posts JOIN votes ON posts.id = votes.post_id GROUP BY posts.id;
+    posts = db.query(models.Post, func.count(models.Vote.post_id).label("likes")).join(models.Vote, models.Post.id == models.Vote.post_id, isouter=True).group_by(models.Post.id).filter(models.Post.title.contains(search)).limit(limit).offset(skip).all()
 
-    # we want to create a query that will return all of our posts, in addition to the number of times each post has been liked, the SQL code for this is:
-    # SELECT posts.*, COUNT(votes.post_id) AS likes FROM posts JOIN votes ON posts.id = votes.post_id GROUP BY posts.id;
-    posts = db.query(models.Post, func.count(models.Vote.post_id).label("likes")).join(models.Vote, models.Post.id == models.Vote.post_id, isouter=True).group_by(models.Post.id).filter(models.Post.title.contains(Search)).limit(Limit).offset(Skip).all()
     return posts
 
+# this function is used for retrieving a specific post by id
 @router.get("/{id}", response_model=schemas.PostOut)
-def get_post(id: int, response: Response, db: Session = Depends(database.get_db), current_user: dict = Depends(oauth2.get_current_user)):
-    # .first() will just find hte first instance of the requirements being met in our database
-    #post = db.query(models.Post).filter(models.Post.id == id).first()
-
+def get_post(id: int, db: Session = Depends(database.get_db), current_user: dict = Depends(oauth2.get_current_user)):
     post = db.query(models.Post, func.count(models.Vote.post_id).label("likes")).join(models.Vote, models.Post.id == models.Vote.post_id, isouter=True).group_by(models.Post.id).filter(models.Post.id == id).first()
 
-    # this code will be for 404 not found error (if a user tries to access an id that doesn't exist)
-    #if not post:
+    # invalid post id's will return 404 Not found message
     if post == None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"post with id: {id} was not found")
-        response.status_code = 404
-        return {'message': "the page you are looking for does not exist"}
+
     return post
 
-# .post refers to http POST request
-# the POST request means that the user will send some data to the server and we can do whatever we want w/ it
-# the status_code parameter changes the default http code for this function
-# the response_model parameter defines exactly what can be returned to the user. In this case, we are passing the Schemas.Post class which inherits from the BaseModel class, which means we are required to send back a dictionary that contains all of the required fields that are defined in the schemas.Post class
+# this function is used for creating a post that will be tied to the id of the user that is logged in
 @router.post("/", status_code = 201, response_model = schemas.PostResponse)
-
-# the data the is being passed in is still being validated by the schemas.Post class
-# the 3rd arguemtn creates a dependency which runs the oauth2.get_current_user function and it will only continue running the create_post function if the oauth2.get_current_user runs w/o any errors, also the current_user will contain the entire row from the users column associated w/ the user b/ thats what get_current_user returns
 def create_post(post: schemas.PostCreate, db: Session = Depends(database.get_db), current_user: dict = Depends(oauth2.get_current_user)):
-    # what we are doing in the next line is converting the post variable into a dictionary and then unpacking it w/ the **
-    # the overall effect of the next line is to basically just create an object of type Post w/ all the info that was provided in the post variable, and we store all this info in the new_post variable
-    # also, we manually add in the owner_id because we do not save this as part of the schemas.PostCreate schemas
+    # we manually add in the owner_id from the authentication token because we do not save this as part of the schemas.PostCreate schemas
     new_post = models.Post(owner_id=current_user.id, **post.dict())
-    # db.add adds the post to the database
     db.add(new_post)
-    # db.commit commits the changes on our local dabase to the database esrver
     db.commit()
-    # db.refresh is instead of the RETURN * at the end of our sql command, meaning that it essentially retrieves the post that we just commited to the database and stores it in the new_post variable
+    # db.refresh is instead of the RETURN * at the end of our sql command, meaning that it retrieves the post that we just commited to the database and stores it in the new_post variable
     db.refresh(new_post)
     return new_post
 
+# this functoin is used for deleting one of the posts that the currently logged in user owns
 @router.delete("/{id}", status_code = 204)
-
-def delete_post(id: int, response: Response, db: Session = Depends(database.get_db), current_user: dict = Depends(oauth2.get_current_user)):
-
-    # remember that by default, this line just creates new SQL code, but does not actually query the database
+def delete_post(id: int, db: Session = Depends(database.get_db), current_user: dict = Depends(oauth2.get_current_user)):
     post_query = db.query(models.Post).filter(models.Post.id == id)
-
     post = post_query.first()
 
-    # the .first() method actually queries the database for the sql query that is saved in post variable
     if not post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"post with id: {id} was not found")
-        response.status_code = 404
-        return {'message': "the page you are looking for does not exist"}
 
     # this if statements makes sure that a user is only deleting there own posts by comparing id's
     if post.owner_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to perform request action")
 
-    # the synchronized_session=False is the default config of the delete method and the delete method actually queries and deletes the correct post from the datbase
+    # the synchronized_session=False a default config of the delete method
     post_query.delete(synchronize_session=False)
     db.commit()
     # delete function generally isn't supposed to return anything when successfully ran
     return
 
+# this function is used to update a post that the currently logged in user owns
 @router.put("/{id}", response_model=schemas.PostResponse)
-
 def update_post(id: int, post: schemas.PostCreate, response: Response, db: Session = Depends(database.get_db), current_user: dict = Depends(oauth2.get_current_user)):
     post_query = db.query(models.Post).filter(models.Post.id == id)
     changed_post = post_query.first()
 
     if not changed_post:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"post with id: {id} was not found")
-        response.status_code = 404
-        return {'message': "the page you are looking for does not exist"}
 
     if changed_post.owner_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to perform request action") 
 
-    # synchronize_sesion=False is the deafult config for updates
-    # we can just pass in a dict for the first argument, we don't have to unpack it
     post_query.update(post.dict(), synchronize_session=False)
     db.commit()
 
