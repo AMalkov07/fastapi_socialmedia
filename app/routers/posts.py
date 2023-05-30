@@ -3,16 +3,17 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List, Optional
 import database, oauth2, models, schemas
+from fastapi.responses import FileResponse
 
 # we use router instead of app variable to connect to specific urls
 router = APIRouter(
-    prefix="/posts",
+    #prefix="/posts",
     #tags are only used for the automatic documentation available at: http://localhost:8000/docs
     tags=['Posts']
 )
 
 # this function will return a specified number of the most recent posts based on a search parameter
-@router.get("/", response_model=List[schemas.PostOut])
+@router.get("/posts", response_model=List[schemas.PostOut])
 def get_posts(db: Session = Depends(database.get_db), current_user: dict = Depends(oauth2.get_current_user), limit: int = 10, skip: int = 0, search: Optional[str] = ""):
     # we return all the post information allong with the number of likes that the post currently has
     # limit, skip, and search variables are matched by URL query parameters
@@ -22,7 +23,7 @@ def get_posts(db: Session = Depends(database.get_db), current_user: dict = Depen
     return posts
 
 # this function is used for retrieving a specific post by id
-@router.get("/{id}", response_model=schemas.PostOut)
+@router.get("/posts/{id}", response_model=schemas.PostOut)
 def get_post(id: int, db: Session = Depends(database.get_db), current_user: dict = Depends(oauth2.get_current_user)):
     post = db.query(models.Post, func.count(models.Vote.post_id).label("likes")).join(models.Vote, models.Post.id == models.Vote.post_id, isouter=True).group_by(models.Post.id).filter(models.Post.id == id).first()
 
@@ -32,8 +33,12 @@ def get_post(id: int, db: Session = Depends(database.get_db), current_user: dict
 
     return post
 
+@router.get("/postsLandingPage")
+async def showPost():
+    return FileResponse("htmlPages/newPost.html")
+
 # this function is used for creating a post that will be tied to the id of the user that is logged in
-@router.post("/", status_code = 201, response_model = schemas.PostResponse)
+@router.post("/posts", status_code = 201, response_model = schemas.PostResponse)
 def create_post(post: schemas.PostCreate, db: Session = Depends(database.get_db), current_user: dict = Depends(oauth2.get_current_user)):
     # we manually add in the owner_id from the authentication token because we do not save this as part of the schemas.PostCreate schemas
     new_post = models.Post(owner_id=current_user.id, **post.dict())
@@ -44,7 +49,7 @@ def create_post(post: schemas.PostCreate, db: Session = Depends(database.get_db)
     return new_post
 
 # this functoin is used for deleting one of the posts that the currently logged in user owns
-@router.delete("/{id}", status_code = 204)
+@router.delete("/posts/{id}", status_code = 204)
 def delete_post(id: int, db: Session = Depends(database.get_db), current_user: dict = Depends(oauth2.get_current_user)):
     post_query = db.query(models.Post).filter(models.Post.id == id)
     post = post_query.first()
@@ -63,7 +68,7 @@ def delete_post(id: int, db: Session = Depends(database.get_db), current_user: d
     return
 
 # this function is used to update a post that the currently logged in user owns
-@router.put("/{id}", response_model=schemas.PostResponse)
+@router.put("/posts/{id}", response_model=schemas.PostResponse)
 def update_post(id: int, post: schemas.PostCreate, response: Response, db: Session = Depends(database.get_db), current_user: dict = Depends(oauth2.get_current_user)):
     post_query = db.query(models.Post).filter(models.Post.id == id)
     changed_post = post_query.first()

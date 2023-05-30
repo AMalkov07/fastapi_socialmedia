@@ -1,8 +1,14 @@
 from fastapi import APIRouter, Depends, status, HTTPException, Response
 from sqlalchemy.orm import Session
 import schemas, models, utils, oauth2, database
+from fastapi.responses import FileResponse
 
 router = APIRouter(tags=['Authentication'])
+
+@router.get("/login/landingPage")
+async def showLogin():
+    return FileResponse("htmlPages/login.html")
+
 
 @router.post("/login", response_model=schemas.Token)
 def login(user_credentials: schemas.UserCredentials, db: Session = Depends(database.get_db)):
